@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: dashboard
+    env: python
+    plan: free
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    python:
+      version: 3.11
