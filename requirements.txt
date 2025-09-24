@@ -1,3 +1,5 @@
 flask
 telethon
 gunicorn
+nest_asyncio
+asyncio
