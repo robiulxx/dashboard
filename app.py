@@ -1,0 +1,215 @@
+# app.py - Updated Version
+from flask import Flask, render_template, request, jsonify, send_from_directory
+import os
+import threading
+import asyncio
+from telethon import TelegramClient
+from telethon.tl.functions.channels import GetFullChannelRequest
+from telethon.sessions import StringSession
+from datetime import datetime, timedelta
+import warnings
+
+app = Flask(__name__)
+PHOTO_FOLDER = "static/photos"
+os.makedirs(PHOTO_FOLDER, exist_ok=True)
+
+# Global client instance
+client = None
+client_lock = threading.Lock()
+
+def initialize_client():
+    """Initialize Telegram client properly"""
+    global client
+    API_ID = int(os.getenv("API_ID"))
+    API_HASH = os.getenv("API_HASH")
+    BOT_TOKEN = os.getenv("BOT_TOKEN")
+    SESSION_STRING = os.getenv("SESSION_STRING")
+    
+    with client_lock:
+        if client is None:
+            try:
+                # Create new session if SESSION_STRING is not provided
+                if not SESSION_STRING or SESSION_STRING.strip() == "":
+                    print("Creating new session...")
+                    client = TelegramClient(StringSession(), API_ID, API_HASH)
+                else:
+                    print("Using existing session...")
+                    client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
+                
+                # Start the client
+                client.start(bot_token=BOT_TOKEN)
+                
+                # Save the new session string if it was created
+                if not SESSION_STRING or SESSION_STRING.strip() == "":
+                    new_session_string = client.session.save()
+                    print(f"NEW_SESSION_STRING: {new_session_string}")
+                    print("Please set this SESSION_STRING in your environment variables")
+                
+                print("Telegram client initialized successfully")
+                
+            except Exception as e:
+                print(f"Error initializing Telegram client: {e}")
+                client = None
+
+# Initialize client when app starts
+initialize_client()
+
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+@app.route("/static/photos/<filename>")
+def photos(filename):
+    return send_from_directory(PHOTO_FOLDER, filename)
+
+@app.route("/api/getinfo", methods=["POST"])
+def get_info():
+    data = request.json
+    username = data.get("username")
+    
+    if not username:
+        return jsonify({"status": "error", "message": "No username provided"}), 400
+    
+    # Remove @ symbol if present
+    username = username.lstrip('@')
+    
+    if not username:
+        return jsonify({"status": "error", "message": "Invalid username"}), 400
+    
+    try:
+        result = fetch_entity_info_sync(username)
+        return jsonify({"status": "success", "info": result})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+def fetch_entity_info_sync(username):
+    """Synchronous wrapper for the async function"""
+    global client
+    
+    if client is None:
+        raise Exception("Telegram client not initialized")
+    
+    # Create new event loop for this thread
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    try:
+        result = loop.run_until_complete(fetch_entity_info(username))
+        return result
+    except Exception as e:
+        raise Exception(f"Failed to fetch info: {str(e)}")
+    finally:
+        loop.close()
+
+async def fetch_entity_info(username):
+    """Async function to fetch entity info"""
+    global client
+    
+    try:
+        # Get entity
+        entity = await client.get_entity(username)
+        
+        # Determine entity type
+        entity_type = "User"
+        if getattr(entity, "bot", False):
+            entity_type = "Bot"
+        elif getattr(entity, "megagroup", False):
+            entity_type = "Group"
+        elif getattr(entity, "broadcast", False):
+            entity_type = "Channel"
+
+        # Calculate account creation date (approximate)
+        base_date = datetime(2015, 1, 1)
+        if hasattr(entity, 'id'):
+            days_offset = (entity.id - 100000000) // 100000
+            created_date = base_date + timedelta(days=max(days_offset, 0))
+            now = datetime.utcnow()
+            delta = now - created_date
+            years = delta.days // 365
+            months = (delta.days % 365) // 30
+            days = (delta.days % 365) % 30
+            age_str = f"{years} years, {months} months, {days} days"
+        else:
+            created_date = base_date
+            age_str = "Unknown"
+
+        # Download profile photo
+        profile_pic_file = None
+        if getattr(entity, "photo", None):
+            try:
+                filename = f"{entity.id}_{int(datetime.now().timestamp())}.jpg"
+                profile_pic_path = os.path.join(PHOTO_FOLDER, filename)
+                await client.download_profile_photo(entity, file=profile_pic_path)
+                if os.path.exists(profile_pic_path):
+                    profile_pic_file = f"/static/photos/{filename}"
+            except Exception as e:
+                print(f"Error downloading profile photo: {e}")
+
+        # Basic info
+        name = getattr(entity, "title", None) 
+        if not name:
+            first_name = getattr(entity, "first_name", "")
+            last_name = getattr(entity, "last_name", "")
+            name = f"{first_name} {last_name}".strip()
+        
+        username_value = getattr(entity, "username", None)
+        if username_value:
+            username_display = f"@{username_value}"
+        else:
+            username_display = None
+
+        # Info dictionary
+        info = {
+            "entity_type": entity_type,
+            "name": name or "Unknown",
+            "username": username_display,
+            "id": getattr(entity, "id", "Unknown"),
+            "premium": getattr(entity, "premium", False),
+            "verified": getattr(entity, "verified", False),
+            "scam": getattr(entity, "scam", False),
+            "fake": getattr(entity, "fake", False),
+            "data_center": "Unknown",  # This requires additional API calls
+            "status": str(getattr(entity, "status", "Unknown")).replace("UserStatus", "").strip(),
+            "account_created": created_date.strftime("%b %d, %Y"),
+            "age": age_str,
+            "profile_pic_url": profile_pic_file
+        }
+
+        # Channel/Group specific info
+        if entity_type in ["Channel", "Group"]:
+            try:
+                full = await client(GetFullChannelRequest(entity))
+                info["members_count"] = getattr(full.full_chat, "participants_count", "Unknown")
+                
+                # Get admins
+                admins = []
+                participants = getattr(full.full_chat, "participants", [])
+                for participant in participants:
+                    if getattr(participant, "admin_rights", None) or getattr(participant, "rank", None):
+                        try:
+                            user_entity = await client.get_entity(participant.user_id)
+                            admin_name = f"{getattr(user_entity, 'first_name', '')} {getattr(user_entity, 'last_name', '')}".strip()
+                            admin_username = getattr(user_entity, "username", None)
+                            admins.append({
+                                "name": admin_name or "Unknown",
+                                "username": f"@{admin_username}" if admin_username else None
+                            })
+                        except Exception as e:
+                            continue
+                info["admins"] = admins
+            except Exception as e:
+                info["members_count"] = "Unknown"
+                info["admins"] = []
+
+        return info
+        
+    except Exception as e:
+        raise Exception(f"Telegram API error: {str(e)}")
+
+@app.route('/health')
+def health_check():
+    return jsonify({"status": "healthy", "message": "Server is running"})
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
