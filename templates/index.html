@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Telegram Dashboard</title>
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<div class="container">
+<h1>Telegram Info Dashboard</h1>
+<input type="text" id="username" placeholder="@username / channel / group">
+<button onclick="getInfo()">Get Info</button>
+<div id="result" class="info-box"></div>
+</div>
+
+<script>
+async function getInfo() {
+  const username = document.getElementById("username").value.trim();
+  if (!username) return alert("Enter username!");
+
+  const res = await fetch("/api/getinfo", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({username})
+  });
+
+  const data = await res.json();
+  const box = document.getElementById("result");
+  box.innerHTML = "";
+
+  if (data.status === "success") {
+    const u = data.info;
+    const header = document.createElement("h2");
+    header.innerText = `${u.entity_type} Info`;
+    header.className = "entity-header";
+    box.appendChild(header);
+
+    if (u.profile_pic_url) {
+      const img = document.createElement("img");
+      img.src = u.profile_pic_url;
+      img.alt = "Profile Pic";
+      img.className = "profile-pic";
+      box.appendChild(img);
+    }
+
+    const fields = [
+      ["Name", u.name],
+      ["Username", u.username || "No Username"],
+      ["ID", u.id],
+      ["Premium", u.premium ? "Yes" : "No"],
+      ["Verified", u.verified ? "Yes" : "No"],
+      ["Scam", u.scam ? "Yes" : "No"],
+      ["Fake", u.fake ? "Yes" : "No"],
+      ["Data Center", u.data_center],
+      ["Status", u.status],
+      ["Account Created", u.account_created],
+      ["Age", u.age]
+    ];
+
+    fields.forEach(f => {
+      const p = document.createElement("p");
+      p.innerText = `↯ ${f[0]}: ${f[1]}`;
+      box.appendChild(p);
+    });
+
+    if (u.entity_type === "Channel" || u.entity_type === "Group") {
+      const mc = document.createElement("p");
+      mc.innerText = `↯ Members Count: ${u.members_count || "Unknown"}`;
+      box.appendChild(mc);
+
+      if (u.admins && u.admins.length > 0) {
+        const adminHeader = document.createElement("p");
+        adminHeader.innerText = "↯ Admins:";
+        box.appendChild(adminHeader);
+
+        u.admins.forEach(a => {
+          const ap = document.createElement("p");
+          ap.style.marginLeft = "15px";
+          ap.innerText = `- ${a.name} ${a.username || ""}`;
+          box.appendChild(ap);
+        });
+      }
+    }
+
+  } else {
+    box.innerHTML = `<p class="error">Error: ${data.message}</p>`;
+  }
+}
+</script>
+</body>
+</html>
