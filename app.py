@@ -2,9 +2,10 @@ from flask import Flask, render_template, request, jsonify, send_from_directory
 from telethon import TelegramClient
 from telethon.tl.functions.channels import GetFullChannelRequest
 import asyncio
+import nest_asyncio
 import os
 from datetime import datetime, timedelta
-
+nest_asyncio.apply()
 API_ID = int(os.getenv("API_ID", "123456"))
 API_HASH = os.getenv("API_HASH", "your_api_hash")
 
