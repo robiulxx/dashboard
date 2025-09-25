@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Info Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #0088cc 0%, #00a8ff 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .input-section {
+            padding: 30px;
+            background: #f8f9fa;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        #username {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 50px;
+            font-size: 16px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        #username:focus {
+            border-color: #0088cc;
+            box-shadow: 0 0 0 3px rgba(0, 136, 204, 0.1);
+        }
+
+        #getInfoBtn {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #0088cc 0%, #00a8ff 100%);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        #getInfoBtn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 136, 204, 0.3);
+        }
+
+        #getInfoBtn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result-section {
+            padding: 30px;
+            min-height: 200px;
+        }
+
+        .info-box {
+            background: white;
+            border-radius: 10px;
+            padding: 0;
+        }
+
+        .entity-header {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 20px;
+            margin: 0;
+            border-radius: 10px 10px 0 0;
+        }
+
+        .profile-pic {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 5px solid #e9ecef;
+            margin: 20px auto;
+            display: block;
+        }
+
+        .info-content {
+            padding: 20px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f3f4;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .info-value {
+            color: #212529;
+            text-align: right;
+        }
+
+        .badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-yes {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge-no {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .badge-premium {
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+            color: #856404;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border-left: 4px solid #dc3545;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+
+        .admin-list {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .admin-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .admin-item:last-child {
+            border-bottom: none;
+        }
+
+        @media (max-width: 768px) {
+            .input-group {
+                flex-direction: column;
+            }
+            
+            #getInfoBtn {
+                width: 100%;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .info-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+            
+            .info-value {
+                text-align: left;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Telegram Info Dashboard</h1>
+            <p>Get detailed information about any Telegram user, channel, or group</p>
+        </div>
+
+        <div class="input-section">
+            <div class="input-group">
+                <input type="text" id="username" placeholder="Enter username (e.g., @username)" onkeypress="handleEnter(event)">
+                <button onclick="getInfo()" id="getInfoBtn">Get Info</button>
+            </div>
+        </div>
+
+        <div class="result-section">
+            <div id="result" class="info-box"></div>
+        </div>
+    </div>
+
+    <script>
+        function handleEnter(event) {
+            if (event.key === 'Enter') {
+                getInfo();
+            }
+        }
+
+        function validateUsername(username) {
+            return username.replace(/^@/, '').trim();
+        }
+
+        async function getInfo() {
+            let username = document.getElementById("username").value.trim();
+            if (!username) {
+                alert("Please enter a Telegram username!");
+                return;
+            }
+
+            username = validateUsername(username);
+            const btn = document.getElementById("getInfoBtn");
+            const originalText = btn.textContent;
+            btn.textContent = "Loading...";
+            btn.disabled = true;
+
+            const resultBox = document.getElementById("result");
+            resultBox.innerHTML = '<div class="loading">🔄 Fetching information...</div>';
+
+            try {
+                const response = await fetch("/api/getinfo", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ username: username })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (data.status === "success") {
+                    displayInfo(data.info);
+                } else {
+                    resultBox.innerHTML = `<div class="error">❌ Error: ${data.message || 'Unknown error occurred'}</div>`;
+                }
+            } catch (error) {
+                resultBox.innerHTML = `<div class="error">❌ Network Error: ${error.message}</div>`;
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        function displayInfo(info) {
+            const resultBox = document.getElementById("result");
+            
+            let html = `
+                <h2 class="entity-header">${getEntityIcon(info.entity_type)} ${info.entity_type} Information</h2>
+                <div class="info-content">
+            `;
+
+            if (info.profile_pic_url) {
+                html += `<img src="${info.profile_pic_url}" alt="Profile Picture" class="profile-pic" onerror="this.style.display='none'">`;
+            }
+
+            html += `
+                <div class="info-item">
+                    <span class="info-label">👤 Name:</span>
+                    <span class="info-value">${escapeHtml(info.name || 'N/A')}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">🔗 Username:</span>
+                    <span class="info-value">${escapeHtml(info.username || 'No username')}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">🆔 ID:</span>
+                    <span class="info-value">${info.id || 'N/A'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">⭐ Premium:</span>
+                    <span class="info-value">
+                        <span class="badge ${info.premium ? 'badge-premium' : 'badge-no'}">
+                            ${info.premium ? 'Yes ★' : 'No'}
+                        </span>
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">✅ Verified:</span>
+                    <span class="info-value">
+                        <span class="badge ${info.verified ? 'badge-yes' : 'badge-no'}">
+                            ${info.verified ? 'Yes' : 'No'}
+                        </span>
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">⚠️ Scam:</span>
+                    <span class="info-value">
+                        <span class="badge ${info.scam ? 'badge-yes' : 'badge-no'}">
+                            ${info.scam ? 'Yes' : 'No'}
+                        </span>
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">🚫 Fake:</span>
+                    <span class="info-value">
+                        <span class="badge ${info.fake ? 'badge-yes' : 'badge-no'}">
+                            ${info.fake ? 'Yes' : 'No'}
+                        </span>
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">🌐 Data Center:</span>
+                    <span class="info-value">${escapeHtml(info.data_center || 'Unknown')}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">📱 Status:</span>
+                    <span class="info-value">${escapeHtml(info.status || 'Unknown')}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">📅 Account Created:</span>
+                    <span class="info-value">${escapeHtml(info.account_created || 'Unknown')}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">⏳ Age:</span>
+                    <span class="info-value">${escapeHtml(info.age || 'Unknown')}</span>
+                </div>
+            `;
+
+            if (info.entity_type === "Channel" || info.entity_type === "Group") {
+                html += `
+                    <div class="info-item">
+                        <span class="info-label">👥 Members Count:</span>
+                        <span class="info-value">${info.members_count || 'Unknown'}</span>
+                    </div>
+                `;
+
+                if (info.admins && info.admins.length > 0) {
+                    html += `
+                        <div class="info-item" style="align-items: flex-start;">
+                            <span class="info-label">🛡️ Admins:</span>
+                            <div class="admin-list">
+                    `;
+                    
+                    info.admins.forEach(admin => {
+                        html += `
+                            <div class="admin-item">
+                                <span>${escapeHtml(admin.name || 'Unknown')}</span>
+                                <span>${escapeHtml(admin.username || '')}</span>
+                            </div>
+                        `;
+                    });
+                    
+                    html += `</div></div>`;
+                }
+            }
+
+            html += `</div>`;
+            resultBox.innerHTML = html;
+        }
+
+        function getEntityIcon(entityType) {
+            const icons = {
+                'User': '👤',
+                'Bot': '🤖',
+                'Channel': '📢',
+                'Group': '👥'
+            };
+            return icons[entityType] || '🔍';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Auto-focus on input field when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('username').focus();
+        });
+    </script>
+</body>
+</html>
