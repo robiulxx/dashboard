@@ -1,4 +1,3 @@
 Flask==2.3.3
-Telethon==1.24.0
+telethon==1.28.5
 pysocks==1.7.1
-cryptography==38.0.4
